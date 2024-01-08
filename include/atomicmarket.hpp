@@ -238,6 +238,7 @@ public:
     );
 
 
+    [[eosio::on_notify("*::transfer")]]
     void receive_token_transfer(
         name from,
         name to,
@@ -245,6 +246,7 @@ public:
         string memo
     );
 
+    [[eosio::on_notify("atomicassets::transfer")]]
     void receive_asset_transfer(
         name from,
         name to,
@@ -252,6 +254,7 @@ public:
         string memo
     );
 
+    [[eosio::on_notify("atomicassets::lognewoffer")]]
     void receive_asset_offer(
         uint64_t offer_id,
         name sender,
@@ -538,38 +541,3 @@ private:
     void internal_transfer_assets(name to, vector <uint64_t> asset_ids, string memo);
 
 };
-
-
-extern "C"
-void apply(uint64_t receiver, uint64_t code, uint64_t action) {
-    if (code == receiver) {
-        // Since some version of CDT onl 32 actions can be listed here, because of preprocessor
-        // magic. From 33 on code doesn't compile.
-        // Hacky solution: Split the switch into two...
-        // In the old CDT this creates interestingly enough the same WASM, so we can leave it as is
-        // to support both CDT versions
-        switch (action) {
-            EOSIO_DISPATCH_HELPER(atomicmarket, \
-            (init)(convcounters)(setminbidinc)(setversion)(addconftoken)(adddelphi)(setmarketfee)(regmarket)(withdraw) \
-            (addbonusfee)(addafeectr)(stopbonusfee)(delbonusfee) \
-            (announcesale)(cancelsale)(purchasesale)(assertsale) \
-            (announceauct)(cancelauct)(auctionbid)(auctclaimbuy)(auctclaimsel)(assertauct) \
-            (createbuyo)(cancelbuyo)(acceptbuyo)(declinebuyo) \
-            (paysaleram)(payauctram)(paybuyoram) \
-            (lognewsale)(lognewauct))
-        }
-        switch(action) {
-            EOSIO_DISPATCH_HELPER(atomicmarket, \
-            (lognewbuyo)(logsalestart)(logauctstart) \
-            (createtbuyo)(canceltbuyo)(fulfilltbuyo))
-        }
-    } else if (code == atomicassets::ATOMICASSETS_ACCOUNT.value && action == name("transfer").value) {
-        eosio::execute_action(name(receiver), name(code), &atomicmarket::receive_asset_transfer);
-
-    } else if (code == atomicassets::ATOMICASSETS_ACCOUNT.value && action == name("lognewoffer").value) {
-        eosio::execute_action(name(receiver), name(code), &atomicmarket::receive_asset_offer);
-
-    } else if (action == name("transfer").value) {
-        eosio::execute_action(name(receiver), name(code), &atomicmarket::receive_token_transfer);
-    }
-}
